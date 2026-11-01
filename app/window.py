@@ -1492,7 +1492,7 @@ class FwWindow(Gtk.ApplicationWindow):
     # ================================================================ Aktionen & Tasten
     def _actions(self):
         A = [
-            ("new-tab", lambda: self.new_tab(self.pane.uri), ["<Control>t"]),
+            ("new-tab", lambda: self.new_tab(self.pane.uri), ["<Control>t", "<Control>n"]),
             ("close-tab", lambda: self.close_tab(), ["<Control>w"]),
             ("next-tab", lambda: self.cycle_tab(1), ["<Control>Tab", "<Control>Page_Down"]),
             ("prev-tab", lambda: self.cycle_tab(-1), ["<Control><Shift>Tab", "<Control>Page_Up"]),
@@ -1713,8 +1713,15 @@ class FwWindow(Gtk.ApplicationWindow):
         except (AttributeError, ValueError):
             pass
         if hasattr(tui, "release_tree"):
-            GLib.timeout_add(1500, lambda: (tui.release_tree(self), tui.trim_memory(), False)[-1])
+            GLib.timeout_add(1500, lambda: (tui.release_tree(self), self._drop_thumbs(), tui.trim_memory(), False)[-1])
         return False
+
+    def _drop_thumbs(self):
+        """Kein anderes Filist-Fenster offen: Vorschau-Texturen freigeben (der Daemon behält sonst Hunderte MB)."""
+        if not any(isinstance(w, type(self)) and w is not self and w.get_visible() for w in Gtk.Window.list_toplevels()):
+            import thumbs
+            if thumbs.THUMBS is not None:
+                thumbs.THUMBS.drop()
 
     # ================================================================ Auswahl-Modus (Portal)
     def _choose_filter(self, idx):

@@ -1,5 +1,8 @@
 # filist – Änderungen
 
+## 1.8.0 (2026-11-01)
+- **Scroll-Ende**: Wer am Ende einer Seite weiterscrollt, sieht aus der Kante einen Verlauf aus ░ ▒ ▓ █ aufsteigen, am Mauszeiger am höchsten. Die Liste bewegt sich dabei nicht und der Effekt läuft ohne Überschwingen aus. Er erscheint nur, wenn kein umgebendes Scroll-Fenster mehr weiterscrollen kann. Abschalten: `"scroll_end": false` in ~/.config/rice-apps/settings.json oder Energiesparmodus.
+
 ## 1.7.0 (2026-10-28)
 - **Suche mit Filtern**: Mit Enter im Filterfeld wird in allen Unterordnern gesucht – jetzt zusätzlich nach Typ, Endung,
   Größe und Alter: `typ:bild` (auch video, audio, dokument, archiv, code, ordner), `ext:pdf,docx`, `größe:>10M`,

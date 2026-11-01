@@ -19,9 +19,18 @@ def _thumb_path(uri, flavor):
 
 
 class Thumbs:
+    MEM_LIMIT = 48 << 20
+
+    def drop(self):
+        """Alle Vorschauen im Speicher verwerfen (Fenster zu); die Dateien im Cache bleiben."""
+        self.memory.clear()
+        self.bytes = 0
+        self.failed.clear()
+
     def __init__(self):
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="thumb")
         self.memory = {}           # (uri, mtime, flavor) → Texture
+        self.bytes = 0             # Pixelgröße des Speichers (statt 3000 Stück: 256-px-Bilder summierten sich auf Hunderte MB)
         self.failed = set()
         self.waiting = {}          # uri → [(item, flavor, cb)]
         self.batch = {}            # uri → mime, gesammelt für Tumbler
@@ -127,10 +136,16 @@ class Thumbs:
 
     def _deliver(self, item, flavor, cb, tex):
         def main():
-            self.memory[(item.uri, item.mtime, flavor)] = tex
-            if len(self.memory) > 3000:
-                for k in list(self.memory)[:500]:
-                    del self.memory[k]
+            key = (item.uri, item.mtime, flavor)
+            old = self.memory.pop(key, None)
+            if old is not None:
+                self.bytes -= old.get_width() * old.get_height() * 4
+            self.memory[key] = tex
+            self.bytes += tex.get_width() * tex.get_height() * 4
+            while self.bytes > self.MEM_LIMIT and len(self.memory) > 1:      # älteste zuerst
+                k = next(iter(self.memory))
+                t = self.memory.pop(k)
+                self.bytes -= t.get_width() * t.get_height() * 4
             cb(tex)
             return False
         GLib.idle_add(main)

@@ -574,9 +574,11 @@ class Pane(Gtk.Box):
         except GLib.Error:
             self.monitor = None
 
-    def _changed(self, *_):
+    def _changed(self, mon, f, other, ev):
+        # Inhalt wächst (Download): höchstens alle 2 s neu lesen; Anlegen/Löschen/Umbenennen fast sofort
+        slow = ev == Gio.FileMonitorEvent.CHANGED
         if self.reload_id is None:
-            self.reload_id = GLib.timeout_add(180, self._do_reload)
+            self.reload_id = GLib.timeout_add(2000 if slow else 180, self._do_reload)
 
     def _do_reload(self):
         if self.editing:                # beim Umbenennen in der Zeile nicht neu aufbauen – später nachholen
@@ -632,9 +634,20 @@ class Pane(Gtk.Box):
                 items = [i for i in items if q in i.display.casefold()]
         items = model.sort_items(list(items), self.sort_field, self.sort_desc,
                                  self.prefs.get("folders_first", True))
-        self.shown = items
         keep = keep if keep is not None else {it.uri for it in self.selected()}
-        self.store.splice(0, self.store.get_n_items(), items)
+        old = self.shown if len(self.shown) == self.store.get_n_items() else []
+        same = lambda x, y: (x.uri, x.mtime, x.size, x.is_dir) == (y.uri, y.mtime, y.size, y.is_dir)
+        n = min(len(old), len(items))
+        p = 0
+        while p < n and same(old[p], items[p]):
+            p += 1
+        s = 0
+        while s < n - p and same(old[-1 - s], items[-1 - s]):
+            s += 1
+        # nur den geänderten Mittelteil austauschen: Bildlauf, Fokus und Menüs bleiben beim Neuladen
+        # (z. B. wachsende Download-Datei) unberührt
+        self.shown = old[:p] + items[p:len(items) - s] + old[len(old) - s:]
+        self.store.splice(p, len(old) - p - s, items[p:len(items) - s])
         if self.select_after or keep:
             want = {self.select_after} if self.select_after else keep
             positions = [i for i, it in enumerate(items) if it.uri in want]
